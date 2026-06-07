@@ -16,7 +16,6 @@ import {
   DEFAULT_SIDEBAR,
   debounce,
 } from "@excalidraw/common";
-import { clearElementsForLocalStorage } from "@excalidraw/element";
 import {
   createStore,
   entries,
@@ -27,7 +26,7 @@ import {
   get,
 } from "idb-keyval";
 
-import { appJotaiStore, atom } from "excalidraw-app/app-jotai";
+import { getNonDeletedElements } from "@excalidraw/element";
 
 import type { LibraryPersistedData } from "@excalidraw/excalidraw/data/library";
 import type { ImportedDataState } from "@excalidraw/excalidraw/data/types";
@@ -39,9 +38,11 @@ import type {
 } from "@excalidraw/excalidraw/types";
 import type { MaybePromise } from "@excalidraw/common/utility-types";
 
+import { appJotaiStore, atom } from "../app-jotai";
 import { SAVE_TO_LOCAL_STORAGE_TIMEOUT, STORAGE_KEYS } from "../app_constants";
 
 import { FileManager } from "./FileManager";
+import { FileStatusStore } from "./fileStatusStore";
 import { Locker } from "./Locker";
 import { updateBrowserStateVersion } from "./tabSync";
 
@@ -88,7 +89,7 @@ const saveDataStateToLocalStorage = (
 
     localStorage.setItem(
       STORAGE_KEYS.LOCAL_STORAGE_ELEMENTS,
-      JSON.stringify(clearElementsForLocalStorage(elements)),
+      JSON.stringify(getNonDeletedElements(elements)),
     );
     localStorage.setItem(
       STORAGE_KEYS.LOCAL_STORAGE_APP_STATE,
@@ -166,6 +167,7 @@ export class LocalData {
   // ---------------------------------------------------------------------------
 
   static fileStorage = new LocalFileManager({
+    onFileStatusChange: FileStatusStore.updateStatuses.bind(FileStatusStore),
     getFiles(ids) {
       return getMany(ids, filesStore).then(
         async (filesData: (BinaryFileData | undefined)[]) => {

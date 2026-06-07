@@ -15,7 +15,6 @@ import {
   getGlobalFixedPointForBindableElement,
   isArrowElement,
   isBindableElement,
-  isFixedPointBinding,
 } from "@excalidraw/element";
 
 import {
@@ -28,14 +27,16 @@ import { isCurve } from "@excalidraw/math/curve";
 import React from "react";
 
 import type { Curve } from "@excalidraw/math";
-import type { DebugElement } from "@excalidraw/common";
+import type {
+  DebugElement,
+  DebugPolygon,
+} from "@excalidraw/element/visualdebug";
 import type {
   ElementsMap,
   ExcalidrawArrowElement,
   ExcalidrawBindableElement,
   FixedPointBinding,
   OrderedExcalidrawElement,
-  PointBinding,
 } from "@excalidraw/element/types";
 
 import { STORAGE_KEYS } from "../app_constants";
@@ -77,6 +78,44 @@ const renderCubicBezier = (
   context.restore();
 };
 
+const renderPolygon = (
+  context: CanvasRenderingContext2D,
+  zoom: number,
+  polygon: DebugPolygon,
+  color: string,
+) => {
+  const { points, fill, close } = polygon;
+
+  if (points.length < 2) {
+    return;
+  }
+
+  context.save();
+  context.beginPath();
+  context.moveTo(points[0][0] * zoom, points[0][1] * zoom);
+  for (let i = 1; i < points.length; i += 1) {
+    context.lineTo(points[i][0] * zoom, points[i][1] * zoom);
+  }
+  if (close !== false) {
+    context.closePath();
+  }
+
+  if (fill) {
+    context.save();
+    context.globalAlpha = 0.15;
+    context.fillStyle = color;
+    context.fill();
+    context.restore();
+  }
+
+  context.strokeStyle = color;
+  context.stroke();
+  context.restore();
+};
+
+const isDebugPolygon = (data: DebugElement["data"]): data is DebugPolygon =>
+  (data as DebugPolygon).type === "polygon";
+
 const renderOrigin = (context: CanvasRenderingContext2D, zoom: number) => {
   context.strokeStyle = "#888";
   context.save();
@@ -91,48 +130,46 @@ const renderOrigin = (context: CanvasRenderingContext2D, zoom: number) => {
 
 const _renderBinding = (
   context: CanvasRenderingContext2D,
-  binding: FixedPointBinding | PointBinding,
+  binding: FixedPointBinding,
   elementsMap: ElementsMap,
   zoom: number,
   width: number,
   height: number,
   color: string,
 ) => {
-  if (isFixedPointBinding(binding)) {
-    if (!binding.fixedPoint) {
-      console.warn("Binding must have a fixedPoint");
-      return;
-    }
-
-    const bindable = elementsMap.get(
-      binding.elementId,
-    ) as ExcalidrawBindableElement;
-    const [x, y] = getGlobalFixedPointForBindableElement(
-      binding.fixedPoint,
-      bindable,
-      elementsMap,
-    );
-
-    context.save();
-    context.strokeStyle = color;
-    context.lineWidth = 1;
-    context.beginPath();
-    context.moveTo(x * zoom, y * zoom);
-    context.bezierCurveTo(
-      x * zoom - width,
-      y * zoom - height,
-      x * zoom - width,
-      y * zoom + height,
-      x * zoom,
-      y * zoom,
-    );
-    context.stroke();
-    context.restore();
+  if (!binding.fixedPoint) {
+    console.warn("Binding must have a fixedPoint");
+    return;
   }
+
+  const bindable = elementsMap.get(
+    binding.elementId,
+  ) as ExcalidrawBindableElement;
+  const [x, y] = getGlobalFixedPointForBindableElement(
+    binding.fixedPoint,
+    bindable,
+    elementsMap,
+  );
+
+  context.save();
+  context.strokeStyle = color;
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(x * zoom, y * zoom);
+  context.bezierCurveTo(
+    x * zoom - width,
+    y * zoom - height,
+    x * zoom - width,
+    y * zoom + height,
+    x * zoom,
+    y * zoom,
+  );
+  context.stroke();
+  context.restore();
 };
 
 const _renderBindableBinding = (
-  binding: FixedPointBinding | PointBinding,
+  binding: FixedPointBinding,
   context: CanvasRenderingContext2D,
   elementsMap: ElementsMap,
   zoom: number,
@@ -140,37 +177,35 @@ const _renderBindableBinding = (
   height: number,
   color: string,
 ) => {
-  if (isFixedPointBinding(binding)) {
-    const bindable = elementsMap.get(
-      binding.elementId,
-    ) as ExcalidrawBindableElement;
-    if (!binding.fixedPoint) {
-      console.warn("Binding must have a fixedPoint");
-      return;
-    }
-
-    const [x, y] = getGlobalFixedPointForBindableElement(
-      binding.fixedPoint,
-      bindable,
-      elementsMap,
-    );
-
-    context.save();
-    context.strokeStyle = color;
-    context.lineWidth = 1;
-    context.beginPath();
-    context.moveTo(x * zoom, y * zoom);
-    context.bezierCurveTo(
-      x * zoom + width,
-      y * zoom + height,
-      x * zoom + width,
-      y * zoom - height,
-      x * zoom,
-      y * zoom,
-    );
-    context.stroke();
-    context.restore();
+  const bindable = elementsMap.get(
+    binding.elementId,
+  ) as ExcalidrawBindableElement;
+  if (!binding.fixedPoint) {
+    console.warn("Binding must have a fixedPoint");
+    return;
   }
+
+  const [x, y] = getGlobalFixedPointForBindableElement(
+    binding.fixedPoint,
+    bindable,
+    elementsMap,
+  );
+
+  context.save();
+  context.strokeStyle = color;
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(x * zoom, y * zoom);
+  context.bezierCurveTo(
+    x * zoom + width,
+    y * zoom + height,
+    x * zoom + width,
+    y * zoom - height,
+    x * zoom,
+    y * zoom,
+  );
+  context.stroke();
+  context.restore();
 };
 
 const renderBindings = (
@@ -197,12 +232,12 @@ const renderBindings = (
 
         _renderBinding(
           context,
-          element.startBinding as FixedPointBinding,
+          element.startBinding,
           elementsMap,
           zoom,
           dim,
           dim,
-          "red",
+          element.startBinding?.mode === "orbit" ? "red" : "black",
         );
       }
 
@@ -221,7 +256,7 @@ const renderBindings = (
           zoom,
           dim,
           dim,
-          "red",
+          element.endBinding?.mode === "orbit" ? "red" : "black",
         );
       }
     }
@@ -285,6 +320,9 @@ const render = (
           el.data as Curve<GlobalPoint>,
           el.color,
         );
+        break;
+      case isDebugPolygon(el.data):
+        renderPolygon(context, appState.zoom.value, el.data, el.color);
         break;
       default:
         throw new Error(`Unknown element type ${JSON.stringify(el)}`);
@@ -376,7 +414,6 @@ export const debugRenderer = throttleRAF(
   ) => {
     _debugRenderer(canvas, appState, elements, scale);
   },
-  { trailing: true },
 );
 
 export const loadSavedDebugState = () => {

@@ -369,7 +369,6 @@ describe("regression tests", () => {
     Keyboard.withModifierKeys({ ctrl: true }, () => {
       Keyboard.keyPress(KEYS.Z);
       Keyboard.keyPress(KEYS.Z);
-      Keyboard.keyPress(KEYS.Z);
     });
     expect(h.elements.filter((element) => !element.isDeleted).length).toBe(2);
     Keyboard.withModifierKeys({ ctrl: true }, () => {
@@ -468,7 +467,8 @@ describe("regression tests", () => {
 
     mouse.reset();
     mouse.down();
-    mouse.restorePosition(...end);
+    mouse.move(-1000, -1000);
+    mouse.restorePosition(end[0] + 3, end[1] + 3);
     mouse.up();
 
     expect(h.elements.length).toBe(3);
@@ -518,7 +518,8 @@ describe("regression tests", () => {
 
     mouse.reset();
     mouse.down();
-    mouse.restorePosition(...end);
+    mouse.move(-1000, -1000);
+    mouse.restorePosition(end[0] + 3, end[1] + 3);
     mouse.up();
 
     for (const element of h.elements) {
@@ -535,7 +536,8 @@ describe("regression tests", () => {
 
     mouse.moveTo(-10, -10); // the NW resizing handle is at [0, 0], so moving further
     mouse.down();
-    mouse.restorePosition(...end);
+    mouse.move(-1000, -1000);
+    mouse.restorePosition(end[0] + 3, end[1] + 3);
     mouse.up();
 
     Keyboard.withModifierKeys({ ctrl: true, shift: true }, () => {
